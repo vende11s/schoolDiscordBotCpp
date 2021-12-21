@@ -42,7 +42,7 @@ std::pair<int, int> parse_time(std::string time) {
 	int Hours;
 	int Minutes;
 	std::string s = "";
-	for (auto i :time) {
+	for (auto i : time) {
 		if (i == ':') {
 			Hours = atoi(s.c_str());
 			s.clear();
@@ -70,6 +70,7 @@ namespace disc {
 		Lessons[sobota] = { "0", "0", "0", "0", "0", "0", "0", "0", "0", "0" };
 		Lessons[niedziela] = { "0", "0", "0", "0", "0", "0", "0", "0", "0", "0" };
 	}
+
 	void ScheduleSend(vector<string>, SleepyDiscord::Message, bool = 0);
 	void TimesSend(SleepyDiscord::Message chid);
 	void ile_jeszcze_do_kurwy(SleepyDiscord::Message chid);
@@ -81,9 +82,6 @@ namespace disc {
 		using SleepyDiscord::DiscordClient::DiscordClient;
 		void onMessage(SleepyDiscord::Message message) override {
 			if (message.startsWith("!plan")) {
-
-				std::time_t tp = std::time(NULL);   // current time, an integer
-				std::tm* ts = std::localtime(&tp); // parsed into human conventions
 
 				ScheduleSend(Lessons[day_of_week()], message);
 			}
@@ -105,43 +103,49 @@ namespace disc {
 		}
 	};
 
-	Niewolnik client("tokne", SleepyDiscord::USER_CONTROLED_THREADS);
+	Niewolnik client("", SleepyDiscord::USER_CONTROLED_THREADS);
+
+	class embedSend {
+	public:
+		SleepyDiscord::Embed embed;
+
+		void send(SleepyDiscord::Message chid) {
+			embed.footer.text = "Bot ufundowany przez pierwiastek z czech!";
+			embed.color = 0x4FFFB0;
+			embed.footer.iconUrl = "https://cdn.discordapp.com/avatars/921493909794852934/e49449ed58cf4471a1db72fa385ef02a.webp?size=80";
+
+			client.sendMessage(chid.channelID, "", embed);
+		}
+	};
 
 	void ScheduleSend(vector<string> Today, SleepyDiscord::Message chid, bool tmrw) {
-		SleepyDiscord::Embed embed;
-		if (tmrw)embed.title = "Jutro jest " + week_inverted[day_of_week(1)];
-		else embed.title = "Dzisiaj mamy " + week_inverted[day_of_week()];
+		embedSend e;
+
+		if (tmrw)e.embed.title = "Jutro jest " + week_inverted[day_of_week(1)];
+		else e.embed.title = "Dzisiaj mamy " + week_inverted[day_of_week()];
 
 		for (int i(0); i < Today.size(); i++) {
 			if (Today[i] == "0")continue;
-			embed.description += to_string(i+1) + ". " + Today[i] + "\n";
+			e.embed.description += to_string(i+1) + ". " + Today[i] + "\n";
 		}
 
-		embed.footer.text = "Bot ufundowany przez pierwiastek z czech!";
-		embed.color = 0x4FFFB0;
-		embed.footer.iconUrl = "https://cdn.discordapp.com/avatars/921493909794852934/e49449ed58cf4471a1db72fa385ef02a.webp?size=80";
-		if (embed.description.empty())embed.title = "WRESZCIE WOLNE";
-		client.sendMessage(chid.channelID, "", embed);
+		if (e.embed.description.empty())e.embed.title = "WRESZCIE WOLNE";
+		e.send(chid);
 	}
 
-
-
 	void TimesSend(SleepyDiscord::Message chid) {
-		SleepyDiscord::Embed embed;
-		embed.title = "Czas";
+		embedSend e;
+		e.embed.title = "Czas";
 
 		for (int i = 0; i < 9; i++) {
-			embed.description += to_string(i + 1) + ". " + StartTime[i] + "-" + EndTime[i] + "\n";
+			e.embed.description += to_string(i + 1) + ". " + StartTime[i] + "-" + EndTime[i] + "\n";
 		}
 
-		embed.footer.text = "Bot ufundowany przez pierwiastek z czech!";
-		embed.color = 0x4FFFB0;
-		embed.footer.iconUrl = "https://cdn.discordapp.com/avatars/921493909794852934/e49449ed58cf4471a1db72fa385ef02a.webp?size=80";
-		client.sendMessage(chid.channelID, "", embed);
+		e.send(chid);
 	}
 
 	void ile_jeszcze_do_kurwy(SleepyDiscord::Message chid){
-		SleepyDiscord::Embed embed;
+		embedSend e;
 		time_t currentTime;
 		struct tm* localTime;
 
@@ -161,31 +165,28 @@ namespace disc {
 			ScheduleSend(Lessons[niedziela], chid);
 			return;
 		}
-		embed.title = "Aktualnie jest " + Lessons[day_of_week()][i];
+		e.embed.title = "Aktualnie jest " + Lessons[day_of_week()][i];
 		
-		embed.description += "Do jej konca zostalo " + to_string((parse_time(EndTime[i]).first * 60 + parse_time(EndTime[i]).second) - (Hour*60+Min)) + " minut\n";
-		embed.description += "Konczymy lekcje o ";
+		e.embed.description += "Do jej konca zostalo " + to_string((parse_time(EndTime[i]).first * 60 + parse_time(EndTime[i]).second) - (Hour*60+Min)) + " minut\n";
+		e.embed.description += "Konczymy lekcje o ";
 
 		int j = 8;
 		for (; j >= 0; j--) {
-			if (Lessons[day_of_week()][i] != "0") {
-				embed.description += EndTime[i] + "\n\n";
+			if (Lessons[day_of_week()][j] != "0") {
+				e.embed.description += EndTime[j] + "\n\n";
 				break;
 			}
 		}
-		embed.description += to_string(parse_time(EndTime[j]).first - Hour) + " godzin\n";
-		embed.description += to_string((parse_time(EndTime[j]).first * 60 + parse_time(EndTime[j]).second) - (Hour * 60 + Min)) + " minut\n";
-		embed.description += to_string((parse_time(EndTime[j]).first * 3600 + parse_time(EndTime[j]).second * 60) - (Hour * 3600 + Min * 60)) + " sekund\n";
+		e.embed.description += to_string(parse_time(EndTime[j]).first - Hour) + " godzin\n";
+		e.embed.description += to_string((parse_time(EndTime[j]).first * 60 + parse_time(EndTime[j]).second) - (Hour * 60 + Min)) + " minut\n";
+		e.embed.description += to_string((parse_time(EndTime[j]).first * 3600 + parse_time(EndTime[j]).second * 60) - (Hour * 3600 + Min * 60)) + " sekund\n";
 
-		embed.description += "do konca pierdolnika dzisiaj";
-		embed.footer.text = "Bot ufundowany przez pierwiastek z czech!";
-		embed.color = 0x4FFFB0;
-		embed.footer.iconUrl = "https://cdn.discordapp.com/avatars/921493909794852934/e49449ed58cf4471a1db72fa385ef02a.webp?size=80";
-		client.sendMessage(chid.channelID, "", embed);
+		e.embed.description += "do konca pierdolnika dzisiaj";
+		e.send(chid);
 	}
 
 	void next(SleepyDiscord::Message chid) {
-		SleepyDiscord::Embed embed;
+		embedSend e;
 		time_t currentTime;
 		struct tm* localTime;
 
@@ -205,30 +206,23 @@ namespace disc {
 			ScheduleSend(Lessons[niedziela], chid);
 			return;
 		}
-		embed.title = "Aktualnie jest " + Lessons[day_of_week()][i];
+		e.embed.title = "Aktualnie jest " + Lessons[day_of_week()][i];
 
-		embed.description += "Do jej konca zostalo " + to_string((parse_time(EndTime[i]).first * 60 + parse_time(EndTime[i]).second) - (Hour * 60 + Min)) + " minut\n";
-		if (i == 8)embed.description += "Potem Koniec";
+		e.embed.description += "Do jej konca zostalo " + to_string((parse_time(EndTime[i]).first * 60 + parse_time(EndTime[i]).second) - (Hour * 60 + Min)) + " minut\n";
+		if (i == 8)e.embed.description += "Potem Koniec";
 		else {
-			embed.description+="Potem " + Lessons[day_of_week()][i+1];
+			e.embed.description+="Potem " + Lessons[day_of_week()][i+1];
 
 		}
 
-		embed.footer.text = "Bot ufundowany przez pierwiastek z czech!";
-		embed.color = 0x4FFFB0;
-		embed.footer.iconUrl = "https://cdn.discordapp.com/avatars/921493909794852934/e49449ed58cf4471a1db72fa385ef02a.webp?size=80";
-		client.sendMessage(chid.channelID, "", embed);
+		e.send(chid);
 	}
 
 	void help(SleepyDiscord::Message chid) {
-		SleepyDiscord::Embed embed;
-		embed.title = "Pomoc";
-		embed.description += "!plan\n!czas\n!jutro\n!ile jeszcze o kurwy\n!next";
-
-		embed.footer.text = "Bot ufundowany przez pierwiastek z czech!";
-		embed.color = 0x4FFFB0;
-		embed.footer.iconUrl = "https://cdn.discordapp.com/avatars/921493909794852934/e49449ed58cf4471a1db72fa385ef02a.webp?size=80";
-		client.sendMessage(chid.channelID, "", embed);
+		embedSend e;
+		e.embed.title = "Pomoc";
+		e.embed.description += "!plan\n!czas\n!jutro\n!ile jeszcze o kurwy\n!next";
+		e.send(chid);
 	}
 
 }
